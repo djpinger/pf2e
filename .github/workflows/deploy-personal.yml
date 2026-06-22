@@ -1,0 +1,72 @@
+name: Build and release personal branch
+
+on:
+  push:
+    branches:
+      - personal/max-damage-variant
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Cache node_modules
+        id: cache-npm
+        uses: actions/cache@v4
+        with:
+          path: node_modules/
+          key: npm-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-npm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Build system
+        run: pnpm run build:system
+
+      - name: Write manifest into dist
+        run: cp system.pf2e.json dist/pf2e/system.json
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('system.pf2e.json','utf8')).version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download official release and overlay patched files
+        run: |
+          curl -fsSL \
+            "https://github.com/foundryvtt/pf2e/releases/download/pf2e-${{ steps.version.outputs.version }}/system.zip" \
+            -o official.zip
+          mkdir staging
+          unzip -q official.zip -d staging
+          cp dist/pf2e/pf2e.mjs     staging/pf2e.mjs
+          cp dist/pf2e/lang/en.json staging/lang/en.json
+          cp dist/pf2e/system.json  staging/system.json
+          cd staging && zip -r ../system.zip . && cd ..
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="pf2e-${VERSION}"
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          git push --delete origin "$TAG" 2>/dev/null || true
+          gh release create "$TAG" system.zip \
+            --title "pf2e ${VERSION} (personal)" \
+            --notes "Personal build with Max Damage Variant crit rule. Based on upstream pf2e ${VERSION}. Not auto-promoted to latest -- verify compatibility with other modules, then run: gh release edit $TAG --latest --repo djpinger/pf2e" \
+            --latest=false

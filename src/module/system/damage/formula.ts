@@ -176,11 +176,18 @@ function instancesFromTypeMap(
                     ? [CRITICAL_INCLUSION.DOUBLE_ON_CRIT]
                     : [CRITICAL_INCLUSION.DOUBLE_ON_CRIT, CRITICAL_INCLUSION.DONT_DOUBLE_ON_CRIT];
 
+            const critRule =
+                degree === DEGREE_OF_SUCCESS.CRITICAL_SUCCESS ? game.settings.get(SYSTEM_ID, "critRule") : null;
+
+            // Max damage: maximize base dice and modifiers, then roll the extra (crit bonus) dice
+            if (critRule === "maxdamage") {
+                const maxPart = sumExpression(createPartialFormulas(groups, { criticalInclusion, maxDamage: true }));
+                const dicePart = sumExpression(createPartialFormulas(groups, { criticalInclusion, diceOnly: true }));
+                return sumExpression([maxPart, dicePart]);
+            }
+
             // Whether to double the dice of these partials
-            const doubleDice =
-                degree === DEGREE_OF_SUCCESS.CRITICAL_SUCCESS &&
-                criticalInclusion.includes(null) &&
-                game.settings.get(SYSTEM_ID, "critRule") === "doubledice";
+            const doubleDice = critRule === "doubledice" && criticalInclusion.includes(null);
 
             // If dice doubling is enabled, any doubling of dice or constants is handled by `createPartialFormulas`
             const double = degree === DEGREE_OF_SUCCESS.CRITICAL_SUCCESS && !doubleDice;
@@ -262,13 +269,13 @@ interface InstancesFromTypeMapParams {
 
 function createPartialFormulas(
     partials: Map<DamageCategoryUnique | null, DamagePartial[]>,
-    { criticalInclusion, doubleDice = false }: PartialFormulaParams,
+    { criticalInclusion, doubleDice = false, maxDamage = false, diceOnly = false }: PartialFormulaParams,
 ): string[] {
     const categories = [null, "persistent", "precision", "splash"] as const;
     return categories.flatMap((category) => {
         const requestedPartials = (partials.get(category) ?? []).filter((p) => criticalInclusion.includes(p.critical));
         const term = ((): string => {
-            const expression = createSimpleFormula(requestedPartials, { doubleDice });
+            const expression = createSimpleFormula(requestedPartials, { doubleDice, maxDamage, diceOnly });
             if (expression === "0") {
                 return "";
             }
@@ -310,12 +317,28 @@ function combinePartialTerms(terms: DamagePartialTerm[]): DamagePartialTerm[] {
 }
 
 /** Combines damage dice and modifiers into a single formula, ignoring the damage type and category. */
-function createSimpleFormula(terms: DamagePartialTerm[], { doubleDice }: { doubleDice?: boolean } = {}): string {
+function createSimpleFormula(
+    terms: DamagePartialTerm[],
+    { doubleDice, maxDamage, diceOnly }: { doubleDice?: boolean; maxDamage?: boolean; diceOnly?: boolean } = {},
+): string {
     terms = combinePartialTerms(terms);
     const constant = terms.find((t) => !!t.modifier)?.modifier ?? 0;
     const positiveDice = terms.filter(
         (t): t is DamagePartial & { dice: NonNullable<DamagePartial["dice"]> } => !!t.dice && t.dice.number > 0,
     );
+
+    // Max damage variant: maximize all dice and return the total as a static number
+    if (maxDamage) {
+        const maxDiceValue = positiveDice.reduce((sum, t) => sum + t.dice.number * t.dice.faces, 0);
+        const total = maxDiceValue + constant;
+        return total ? String(total) : "0";
+    }
+
+    // Dice-only portion for the max damage variant: the extra dice rolled fresh (no constants)
+    if (diceOnly) {
+        if (!positiveDice.length) return "0";
+        return positiveDice.map((t) => `${t.dice.number}d${t.dice.faces}[max-damage-extra]`).join(" + ");
+    }
 
     const diceTerms = positiveDice.map((term) => {
         const number = doubleDice ? term.dice.number * 2 : term.dice.number;
@@ -376,6 +399,10 @@ interface PartialFormulaParams {
     criticalInclusion: CriticalInclusion[];
     /** Whether to double the dice of these partials */
     doubleDice?: boolean;
+    /** Whether to maximize dice (return static max value instead of rolling) */
+    maxDamage?: boolean;
+    /** Whether to return only the dice expression without constants (for max-damage extra roll) */
+    diceOnly?: boolean;
 }
 
 function sumExpression(terms: (string | null)[], { double = false } = {}): string | null {

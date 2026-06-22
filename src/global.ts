@@ -132,7 +132,7 @@ interface ClientSettingsPF2e extends fh.ClientSettings {
     get(scope: SystemId, setting: "compendiumBrowserPacks"): CompendiumBrowserSettings;
     get(scope: SystemId, setting: "compendiumBrowserSources"): CompendiumBrowserSources;
     get(scope: SystemId, setting: "critFumbleButtons"): boolean;
-    get(scope: SystemId, setting: "critRule"): "doubledamage" | "doubledice";
+    get(scope: SystemId, setting: "critRule"): "doubledamage" | "doubledice" | "maxdamage";
     get(scope: SystemId, setting: "deathIcon"): ImageFilePath;
     get(scope: SystemId, setting: "distanceDisplay"): "always" | "encounters" | "never";
     get(scope: SystemId, setting: "drawCritFumble"): boolean;

@@ -3837,7 +3837,8 @@
             "CritRule": {
                 "Choices": {
                     "Doubledamage": "Double the damage",
-                    "Doubledice": "Double the number of dice"
+                    "Doubledice": "Double the number of dice",
+                    "Maxdamage": "Maximize base damage, roll extra dice"
                 },
                 "Hint": "Use a different rule for doubling damage on a critical hit",
                 "Name": "Critical Damage Rule"

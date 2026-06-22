@@ -88,7 +88,7 @@ class DamageRoll extends AbstractDamageRoll {
 
         this.options.showBreakdown ??= true;
 
-        if (tupleHasValue(["double-damage", "double-dice"], options.critRule)) {
+        if (tupleHasValue(["double-damage", "double-dice", "max-damage"], options.critRule)) {
             // Ensure same crit rule is present on all instances
             for (const instance of this.instances) {
                 instance.critRule = options.critRule;
@@ -598,6 +598,12 @@ class DamageInstance extends AbstractDamageRoll {
 
         if (this.critRule === "double-damage") {
             return undoubledTotal;
+        } else if (this.critRule === "max-damage") {
+            // Max damage variant: total = maximized_base + extra_dice[max-damage-extra]
+            // critImmuneTotal = total - max_value_of_extra_dice (restores to "normal hit" equivalent)
+            const extraDice = this.dice.filter((d) => /\bmax-damage-extra\b/.test(d.flavor));
+            const maxDiceValue = extraDice.reduce((sum, d) => sum + d.number * (d.faces ?? 0), 0);
+            return (this.total ?? 0) - maxDiceValue;
         } else {
             // Dice doubling for crits is enabled: discard the second half of all doubled dice
             const secondHalf = this.dice
@@ -649,7 +655,7 @@ interface InstanceRenderOptions extends RollRenderOptions {
     tooltips?: boolean;
 }
 
-type CriticalDoublingRule = "double-damage" | "double-dice";
+type CriticalDoublingRule = "double-damage" | "double-dice" | "max-damage";
 
 interface AbstractDamageRollData extends RollOptions {
     evaluatePersistent?: boolean;

@@ -1,0 +1,54 @@
+name: Sync and rebase from upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 6am UTC
+  workflow_dispatch:      # allow manual trigger from Actions UI
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: personal/max-damage-variant
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/foundryvtt/pf2e.git
+          git fetch upstream --tags v14-dev
+
+      - name: Find latest official pf2e release tag
+        id: tag
+        run: |
+          LATEST_TAG=$(git tag -l 'pf2e-*' | grep -E '^pf2e-[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest official tag: $LATEST_TAG"
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          BEHIND=$(git rev-list --count HEAD.."${{ steps.tag.outputs.tag }}")
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "Behind ${{ steps.tag.outputs.tag }} by $BEHIND commit(s)"
+
+      - name: Rebase onto latest official tag
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git rebase "${{ steps.tag.outputs.tag }}"
+
+      - name: Push rebased branch (does not affect Foundry -- stable branch is untouched)
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git push origin personal/max-damage-variant --force-with-lease

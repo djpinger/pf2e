@@ -53,6 +53,7 @@ export function registerSettings(): void {
         choices: {
             doubledamage: "PF2E.SETTINGS.CritRule.Choices.Doubledamage",
             doubledice: "PF2E.SETTINGS.CritRule.Choices.Doubledice",
+            maxdamage: "PF2E.SETTINGS.CritRule.Choices.Maxdamage",
         },
         onChange: () => {
             for (const sheet of Object.values(ui.windows).filter((w) => w instanceof ActorSheetPF2e)) {

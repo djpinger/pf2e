@@ -1,0 +1,29 @@
+name: Promote personal branch to stable
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: personal/max-damage-variant
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fast-forward stable to personal/max-damage-variant
+        run: |
+          git push origin personal/max-damage-variant:stable
+
+      - name: Mark matching release as latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('system.pf2e.json','utf8')).version")
+          gh release edit "pf2e-${VERSION}" --latest

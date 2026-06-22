@@ -169,12 +169,15 @@ export class DamagePF2e {
 
             const rollerId = game.userId;
             const degreeOfSuccess = outcome ? (DEGREE_OF_SUCCESS_STRINGS.indexOf(outcome) as ZeroToThree) : null;
+            const settingCritRule = game.settings.get(SYSTEM_ID, "critRule");
             const critRule =
                 degreeOfSuccess !== DEGREE_OF_SUCCESS.CRITICAL_SUCCESS
                     ? null
-                    : game.settings.get(SYSTEM_ID, "critRule") === "doubledamage"
+                    : settingCritRule === "doubledamage"
                       ? "double-damage"
-                      : "double-dice";
+                      : settingCritRule === "doubledice"
+                        ? "double-dice"
+                        : "max-damage";
             const options: DamageRollData = {
                 rollerId,
                 damage: data,

@@ -1,9 +1,7 @@
 name: Build and release personal branch
 
 on:
-  push:
-    branches:
-      - personal/max-damage-variant
+  workflow_dispatch: {}   # manual trigger only
 
 permissions:
   contents: write

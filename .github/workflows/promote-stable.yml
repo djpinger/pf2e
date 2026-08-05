@@ -17,9 +17,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fast-forward stable to personal/max-damage-variant
+      - name: Point stable at personal/max-damage-variant
         run: |
-          git push origin personal/max-damage-variant:stable
+          git push --force origin personal/max-damage-variant:stable
 
       - name: Mark matching release as latest
         env:
